@@ -1,61 +1,105 @@
 import os
 import numpy as np
+from sklearn import tree
 from sklearn.externals import joblib
 
 def main():
 
-    folder = "acmTesteTreino/"
+	folder = "acmTesteTreino/"
 
     ### Carregando coleção original ###
-    print('Carregando coleção original...')
+	print('Carregando coleção original...')
 
-    arquivo = "teste0.txt"
+	arquivo = "treino0.txt"
 
-    file_c = folder + arquivo
-    file = open(file_c, 'r', encoding="utf8")
-    docs = file.readlines()
-    file.close()
+	file_c = folder + arquivo
+	file = open(file_c, 'r', encoding="utf8")
+	docs = file.readlines()
+	file.close()
 
-    n_termos = 59991
+	n_termos = 59991
 
     #Y (classes)
-    Y = []
-    for doc in docs:
-        Y.append(doc.split()[0])
+	Y = []
+	for doc in docs:
+		Y.append(doc.split()[0])
     
     #X (features)
-    X = np.zeros((len(docs), n_termos), dtype=np.int_)
+	X = np.zeros((len(docs), n_termos), dtype=np.int_)
 
-    for index,doc in enumerate(docs):    
-        for termo in doc.split()[1:]:
-            X[index][int(termo.split(':')[0])] = int(termo.split(':')[1])
+	for index,doc in enumerate(docs):    
+		for termo in doc.split()[1:]:
+			X[index][int(termo.split(':')[0])] = int(termo.split(':')[1])
 
     ### Carregando modelo em disco ###
-    print('Carregando codificador...')
+	print('Carregando codificador...')
 
-    joblib_file = "encoder(50).pkl"
-    model_eforest = joblib.load("modelos/" + joblib_file)
+	joblib_file = "encoder(sem restricao).pkl"
+	model_eforest = joblib.load("modelos/Supervisionado/" + joblib_file)
 
     ### Codificando a coleção ###
-    print('Codificando a coleção...')
+	print('Codificando a coleção...')
 
-    X_encode = model_eforest.encode(X)
+	X_encode = model_eforest.encode(X)
 
-    ### Salvando codificação ###
-    print('Salvando codificação...')
+	### Calculando pesos e salvando codificação ###
+	print('Calculando pesos e salvando codificação...')
 
-    colecao_codificada_folder = "ColecaoCodificada/"
+	node_samples = []
+	
+	for t in range(len(X_encode[0])):
+		node_samples.append({})
+		for f in range(len(docs)):
+			if X_encode[f][t] in node_samples[t].keys():
+				node_samples[t][X_encode[f][t]] += 1
+			else:
+				node_samples[t][X_encode[f][t]] = 1
+	
+	colecao_codificada_folder = "ColecaoCodificada/"
 
-    file = colecao_codificada_folder + arquivo
-    output = open(file, 'w+')
+	### Calculando profundidade dos nós das árvores ###
+	trees_depth = []	
+		
+	for t in range(300):
+		arvore = model_eforest.estimators_[t]
+		n_nodes = arvore.tree_.node_count
+		children_left = arvore.tree_.children_left
+		children_right = arvore.tree_.children_right
+		node_depth = np.zeros(shape=n_nodes)
 
-    for d in range(len(docs)):
-        output.write(str(Y[d]))
-        for f in range(len(X_encode[d])):
-            output.write(' ' + str(f) + ':' + str(X_encode[d][f]))
-        output.write('\n')
+		stack = [(0, -1)]  # seed is the root node id and its parent depth
+		while len(stack) > 0:
+			node_id, parent_depth = stack.pop()
+			node_depth[node_id] = parent_depth + 1
+			# If we have a test node
+			if (children_left[node_id] != children_right[node_id]):
+				stack.append((children_left[node_id], parent_depth + 1))
+				stack.append((children_right[node_id], parent_depth + 1))
+
+		trees_depth.append(node_depth)
+		
+
+	file = colecao_codificada_folder + arquivo
+	output = open(file, 'w+')
+
+	count = 0
+	for d in range(len(docs)):
+		count += 1
+		output.write(str(Y[d]))
+		for t in range(len(X_encode[d])):
+			arvore = model_eforest.estimators_[t]
+			altura_max = arvore.tree_.max_depth
+
+			### Calculando peso da folha
+			alpha = 0.8
+			beta = 0.2
+			altura = altura_max - trees_depth[t][X_encode[d][t]]
+			peso = alpha * (altura/(altura_max-1)) + beta * (node_samples[t][X_encode[d][t]]/len(docs))
+			output.write(' ' + str(t) + ':' + str(X_encode[d][t]) + ':' + str(peso))
+		output.write('\n')
+		print(str(count)+'/'+str(len(docs)))
     
-    output.close()
+	output.close()
 
 # -------------------------------------------------------------------------#
 # Executa o metodo main
