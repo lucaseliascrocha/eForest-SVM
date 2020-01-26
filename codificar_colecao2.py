@@ -1,5 +1,6 @@
 import os
 import numpy as np
+from sklearn import tree
 from sklearn.externals import joblib
 
 def main():
@@ -33,13 +34,38 @@ def main():
     ### Carregando modelo em disco ###
     print('Carregando codificador...')
 
-    joblib_file = "encoder(sem restricao).pkl"
+    joblib_file = "encoder0.pkl"
     model_eforest = joblib.load("modelos/Supervisionado/" + joblib_file)
 
     ### Codificando a coleção ###
     print('Codificando a coleção...')
 
     X_encode = model_eforest.encode(X)
+
+    ### Mapeando folhas ###
+    leaf_map = []
+
+    # Alocando map #
+    for t in range(300):
+        leaf_map.append({})
+		
+    for t in range(300):
+
+        arvore = model_eforest.estimators_[t]
+        children_left = arvore.tree_.children_left
+        children_right = arvore.tree_.children_right
+        aux = 1
+
+        stack = [(0, -1)]  # seed is the root node id and its parent depth
+        while len(stack) > 0:
+            node_id, parent_depth = stack.pop()
+			# If we have a test node
+            if (children_left[node_id] != children_right[node_id]):
+                stack.append((children_left[node_id], parent_depth + 1))
+                stack.append((children_right[node_id], parent_depth + 1))
+            else:
+                leaf_map[t][node_id] =  aux
+                aux += 1
 
     ### Salvando codificação ###
     print('Salvando codificação...')
@@ -60,7 +86,7 @@ def main():
 
     for d in range(len(docs)):
         for f in range(len(X_encode[d])):
-            output.write(str(X_encode[d][f]) + ',')
+            output.write(str(leaf_map[t][X_encode[d][t]]) + ',')
         
         output.write(classe[int(Y[d])-1]) # classe nominal
         output.write('\n')

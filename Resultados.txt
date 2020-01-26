@@ -1,7 +1,0 @@
---- Encoder treinado com Treino0
---  SVM treinado com Teste0'
--   Score da classificação: Teste0 (99.74%); Treino0 (54.92%)
-
---- Encoder treinado com Treino0
---  SVM treinado com Treino0'
--   Score da classificação: Teste0 (%); Treino0 (%)

@@ -34,7 +34,7 @@ def main():
     ### Carregando modelo em disco ###
     print('Carregando codificador...')
 
-    joblib_file = "encoder(sem restricao).pkl"
+    joblib_file = "encoder0.pkl"
     model_eforest = joblib.load("modelos/Supervisionado/" + joblib_file)
 
     ### Codificando a coleção ###
@@ -58,9 +58,16 @@ def main():
     colecao_codificada_folder = "ColecaoCodificada/"
 
 	### Calculando profundidade dos nós das árvores ###
-    trees_depth = []	
+    trees_depth = []
+    leaf_map = []
+    aux = 1
+
+    #Alocando map#
+    for t in range(300):
+        leaf_map.append({})
 		
     for t in range(300):
+
         arvore = model_eforest.estimators_[t]
         n_nodes = arvore.tree_.node_count
         children_left = arvore.tree_.children_left
@@ -75,14 +82,15 @@ def main():
             if (children_left[node_id] != children_right[node_id]):
                 stack.append((children_left[node_id], parent_depth + 1))
                 stack.append((children_right[node_id], parent_depth + 1))
+            else:
+                leaf_map[t][node_id] =  aux
+                aux += 1
 
         trees_depth.append(node_depth)
 		
 
     file_code = colecao_codificada_folder + arquivo
-    file_peso = colecao_codificada_folder + arquivo.split('.')[0] + '_pesos.txt'
     output_code = open(file_code, 'w+')
-    output_peso = open(file_peso, 'w+')
 
     count = 0
     for d in range(len(docs)):
@@ -92,19 +100,18 @@ def main():
             arvore = model_eforest.estimators_[t]
             altura_max = arvore.tree_.max_depth
 
-			### Calculando peso da folha
-            alpha = 0.8
-            beta = 0.2
+			### Calculando peso da folha ###
+            alpha = 1
+            beta = 0
             altura = altura_max - trees_depth[t][X_encode[d][t]]
             peso = alpha * (altura/(altura_max-1)) + beta * (node_samples[t][X_encode[d][t]]/len(docs))
-            output_code.write(' ' + str(t) + ':' + str(X_encode[d][t]))
-            output_peso.write(str(peso) + ' ')
+
+            ### Escrevendo no arquivo ###
+            output_code.write(' ' + str(leaf_map[t][X_encode[d][t]]) + ':' + str(peso))
         output_code.write('\n')
-        output_peso.write('\n')
         print(str(count)+'/'+str(len(docs)))
     
     output_code.close()
-    output_peso.close()
 
 # -------------------------------------------------------------------------#
 # Executa o metodo main
