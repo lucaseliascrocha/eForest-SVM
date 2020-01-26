@@ -85,7 +85,7 @@ def main():
     
 
     for d in range(len(docs)):
-        for f in range(len(X_encode[d])):
+        for t in range(len(X_encode[d])):
             output.write(str(leaf_map[t][X_encode[d][t]]) + ',')
         
         output.write(classe[int(Y[d])-1]) # classe nominal
